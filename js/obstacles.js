@@ -289,9 +289,9 @@ class ObstacleManager {
         }
 
         if (this.chaserActive) {
-            // 始终跟随在玩家后方
+            // 始终跟随在玩家后方（在摄像机视野内：摄像机z=-8，玩家z=0）
             const targetX = GAME_CONFIG.LANE_POSITIONS[playerLane];
-            const targetZ = playerPos.z - 10;
+            const targetZ = playerPos.z - 5; // 玩家后方5单位，摄像机前方可见
             this.chaser.position.x += (targetX - this.chaser.position.x) * 0.06;
             this.chaser.position.z += (targetZ - this.chaser.position.z) * 0.1;
         }
@@ -393,16 +393,15 @@ class ObstacleManager {
 
     // 逮捕动画：雪碧从后方冲刺撞飞玩家
     triggerCatch(playerPos, playerMesh) {
-        if (!this.chaserActive) {
-            // 如果还没激活，强行激活
-            this.chaserActive = true;
-            this.chaser.visible = true;
-            this.chaser.position.set(playerPos.x, 0, playerPos.z - 6);
-        }
+        // 强制激活雪碧
+        this.chaserActive = true;
+        this.chaser.visible = true;
+        // 从玩家身后可见位置（摄像机z=-8，玩家z=0，中间z=-4可见）
+        this.chaser.position.set(playerPos.x, 0, playerPos.z - 4);
 
         // 记录目标位置
         this._catchTarget = { x: playerPos.x, z: playerPos.z };
-        this._catchPhase = 'charging'; // charging → hit → done
+        this._catchPhase = 'charging';
         this._catchTimer = 0;
         this._catchPlayerMesh = playerMesh;
     }
@@ -413,12 +412,14 @@ class ObstacleManager {
         this._catchTimer += delta;
 
         if (this._catchPhase === 'charging') {
-            // 雪碧猛冲向玩家（0.3秒内冲到）
+            // 雪碧猛冲向玩家（0.3秒冲到）
             const t = Math.min(this._catchTimer / 0.3, 1.0);
-            const ease = t * t; // 加速逼近
-            const startZ = this._catchTarget.z - 6 - (1 - ease) * 4;
-            this.chaser.position.z = startZ + ease * (this._catchTarget.z + 0.5 - startZ);
-            this.chaser.position.x += (this._catchTarget.x - this.chaser.position.x) * 0.2;
+            const ease = t * t;
+            // 从身后z=-4冲到玩家位置z=0
+            const startZ = this._catchTarget.z - 4;
+            const endZ = this._catchTarget.z + 0.3;
+            this.chaser.position.z = startZ + ease * (endZ - startZ);
+            this.chaser.position.x += (this._catchTarget.x - this.chaser.position.x) * 0.3;
 
             if (t >= 1.0) {
                 // 撞击！

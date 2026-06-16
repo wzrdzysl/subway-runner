@@ -1,113 +1,108 @@
-// 音频管理器
+// 音频管理器 - 稳健版
 class AudioManager {
     constructor() {
-        this.bgm = null;
-        this.deathSfx = null;
-        this.jumpSfx = null;
         this.bgmPlaying = false;
-        this.bgmReady = false;
-        this.initialized = false;
+        this.muted = false;
+        this._initDone = false;
     }
 
     init() {
-        if (this.initialized) return;
+        if (this._initDone) return;
+        this._initDone = true;
 
-        // 背景音乐 - 预加载
-        this.bgm = new Audio();
-        this.bgm.preload = 'auto';
-        this.bgm.loop = true;
-        this.bgm.volume = 0.5;
-        this.bgm.src = 'assets/bgm.mp3';
-        this.bgm.load();
+        // 一次性创建所有音频元素并预加载
+        this._createAudio('bgm', 'assets/bgm.mp3', { loop: true, volume: 0.5 });
+        this._createAudio('death', 'assets/death.mp3', { loop: false, volume: 0.8 });
+        this._createAudio('jump', 'assets/jump.mp3', { loop: false, volume: 0.4 });
+    }
 
-        // 监听加载完成
-        this.bgm.addEventListener('canplaythrough', () => {
-            this.bgmReady = true;
-            console.log('BGM ready');
+    _createAudio(key, src, opts) {
+        const a = document.createElement('audio');
+        a.preload = 'auto';
+        a.src = src;
+        a.loop = opts.loop || false;
+        a.volume = opts.volume || 0.5;
+        a.load();
+
+        // 预加载到能播放
+        a.addEventListener('canplaythrough', () => {
+            this['_' + key + 'Ready'] = true;
         }, { once: true });
 
-        // 加载失败降级
-        this.bgm.addEventListener('error', () => {
-            console.log('BGM load failed, continuing without music');
-            this.bgmReady = true; // 不阻塞游戏
+        a.addEventListener('error', (e) => {
+            console.warn('Audio load error:', key, e.target.error);
+            // 降级标记为就绪避免阻塞
+            this['_' + key + 'Ready'] = true;
         }, { once: true });
 
-        // 死亡音效
-        this.deathSfx = new Audio('assets/death.mp3');
-        this.deathSfx.preload = 'auto';
-        this.deathSfx.volume = 0.8;
+        this['_' + key] = a;
+    }
 
-        // 跳跃音效
-        this.jumpSfx = new Audio('assets/jump.mp3');
-        this.jumpSfx.preload = 'auto';
-        this.jumpSfx.volume = 0.4;
+    _playAudio(key) {
+        const a = this['_' + key];
+        if (!a) return;
+        if (this.muted) return;
 
-        this.initialized = true;
+        a.currentTime = 0;
+        const p = a.play();
+        if (p && p.catch) {
+            p.catch(() => {
+                // 重试一次（某些浏览器第一次拒绝，第二次接受）
+                setTimeout(() => {
+                    a.currentTime = 0;
+                    a.play().catch(() => {});
+                }, 100);
+            });
+        }
     }
 
     playBGM() {
-        if (!this.initialized) this.init();
+        if (!this._initDone) this.init();
         if (this.bgmPlaying) return;
 
-        // 确保音频加载完毕再播放
-        const tryPlay = () => {
-            this.bgm.currentTime = 0;
-            this.bgm.play().then(() => {
-                console.log('BGM playing');
+        const tryBGM = () => {
+            const a = this._bgm;
+            if (!a) return;
+            a.currentTime = 0;
+            a.play().then(() => {
                 this.bgmPlaying = true;
-            }).catch(e => {
-                console.log('BGM blocked:', e.message);
-                // 重试一次（某些浏览器需要更明确的用户交互）
+            }).catch(() => {
+                // 再试
                 setTimeout(() => {
-                    this.bgm.play().then(() => {
+                    a.play().then(() => {
                         this.bgmPlaying = true;
                     }).catch(() => {});
                 }, 200);
             });
         };
 
-        if (this.bgmReady) {
-            tryPlay();
+        if (this._bgmReady) {
+            tryBGM();
         } else {
-            // 还没加载完，等一等
-            const onReady = () => {
-                this.bgm.removeEventListener('canplaythrough', onReady);
-                tryPlay();
-            };
-            this.bgm.addEventListener('canplaythrough', onReady, { once: true });
-            // 超时保护：1秒后无论如何尝试
+            // 还没加载完就等
+            const onReady = () => { tryBGM(); };
+            this._bgm.addEventListener('canplaythrough', onReady, { once: true });
             setTimeout(() => {
-                if (!this.bgmPlaying) {
-                    this.bgm.removeEventListener('canplaythrough', onReady);
-                    tryPlay();
-                }
-            }, 1000);
+                if (!this.bgmPlaying) tryBGM();
+            }, 1500);
         }
     }
 
     stopBGM() {
-        if (!this.bgm) return;
-        this.bgm.pause();
-        this.bgm.currentTime = 0;
+        const a = this._bgm;
+        if (!a) return;
+        a.pause();
+        a.currentTime = 0;
         this.bgmPlaying = false;
     }
 
     playDeath() {
-        if (!this.initialized) this.init();
-        if (this.deathSfx) {
-            this.deathSfx.currentTime = 0;
-            this.deathSfx.play().catch(() => {});
-        }
+        this._playAudio('death');
     }
 
     playJump() {
-        if (!this.initialized) this.init();
-        if (this.jumpSfx) {
-            this.jumpSfx.currentTime = 0;
-            this.jumpSfx.play().catch(() => {});
-        }
+        this._playAudio('jump');
     }
 }
 
-// 全局实例
 const audioManager = new AudioManager();

@@ -101,7 +101,10 @@ class Game {
         // 雪碧冲上来撞飞玩家
         this.obstacles.triggerCatch(this.player.getPosition(), this.player.mesh);
 
-        this.ui.showGameOver(Math.floor(this.score), this.collectedCoins);
+        // 延迟弹出游戏结束面板，先让撞击动画播完
+        setTimeout(() => {
+            this.ui.showGameOver(Math.floor(this.score), this.collectedCoins);
+        }, 1500);
     }
 
     _loop(timestamp) {

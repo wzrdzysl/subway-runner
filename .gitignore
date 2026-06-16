@@ -1,0 +1,10 @@
+.claude/
+背景音乐.mp4
+死亡音频.mp4
+process_images.py
+resize_images.py
+character_nobg.png
+man.jpg
+node_modules/
+*.pyc
+__pycache__/

@@ -1,0 +1,287 @@
+/* 全局样式 */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    font-family: 'Microsoft YaHei', 'PingFang SC', 'Helvetica Neue', Arial, sans-serif;
+    background: #000;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: none;
+}
+
+#game-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+}
+
+#game-container canvas {
+    display: block;
+}
+
+/* ============ HUD ============ */
+#game-hud {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    padding: 15px 20px;
+    z-index: 10;
+    pointer-events: none;
+    justify-content: space-between;
+}
+
+#score-display {
+    background: rgba(0, 0, 0, 0.6);
+    border-radius: 12px;
+    padding: 8px 18px;
+    color: white;
+    text-align: center;
+    backdrop-filter: blur(10px);
+}
+
+.score-label {
+    font-size: 12px;
+    text-transform: uppercase;
+    opacity: 0.8;
+    letter-spacing: 1px;
+}
+
+.score-value {
+    font-size: 28px;
+    font-weight: bold;
+    color: #FFD700;
+    line-height: 1.2;
+}
+
+#coin-display {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(0, 0, 0, 0.6);
+    border-radius: 12px;
+    padding: 8px 18px;
+    backdrop-filter: blur(10px);
+}
+
+.coin-icon {
+    font-size: 28px;
+}
+
+.coin-value {
+    font-size: 24px;
+    font-weight: bold;
+    color: #FFD700;
+}
+
+#high-score-display {
+    background: rgba(0, 0, 0, 0.6);
+    border-radius: 12px;
+    padding: 8px 14px;
+    color: white;
+    text-align: center;
+    backdrop-filter: blur(10px);
+}
+
+.hs-label {
+    font-size: 11px;
+    opacity: 0.8;
+}
+
+.hs-value {
+    font-size: 18px;
+    font-weight: bold;
+    color: #FFA500;
+}
+
+/* ============ 开始界面 ============ */
+#start-screen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+    cursor: pointer;
+}
+
+.start-content {
+    text-align: center;
+    color: white;
+}
+
+.game-title {
+    font-size: 48px;
+    font-weight: bold;
+    margin-bottom: 8px;
+    background: linear-gradient(135deg, #FFD700, #FFA500);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    text-shadow: none;
+}
+
+.game-subtitle {
+    font-size: 18px;
+    color: #ccc;
+    margin-bottom: 30px;
+}
+
+.instructions {
+    margin-bottom: 30px;
+}
+
+.control-row {
+    font-size: 16px;
+    color: #aaa;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+
+.key {
+    display: inline-block;
+    background: rgba(255, 255, 255, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 6px;
+    padding: 4px 12px;
+    font-size: 14px;
+    color: white;
+    font-weight: bold;
+    min-width: 40px;
+}
+
+.mobile-only {
+    display: none;
+}
+
+@media (max-width: 768px) {
+    .mobile-only {
+        display: flex;
+    }
+    .game-title {
+        font-size: 36px;
+    }
+}
+
+.game-btn {
+    display: inline-block;
+    padding: 15px 60px;
+    font-size: 22px;
+    font-weight: bold;
+    color: white;
+    background: linear-gradient(135deg, #FF6B6B, #FF8E53);
+    border: none;
+    border-radius: 50px;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    box-shadow: 0 8px 30px rgba(255, 107, 107, 0.4);
+    font-family: inherit;
+}
+
+.game-btn:hover {
+    transform: scale(1.05);
+    box-shadow: 0 12px 40px rgba(255, 107, 107, 0.6);
+}
+
+.game-btn:active {
+    transform: scale(0.98);
+}
+
+.credits {
+    margin-top: 24px;
+    font-size: 14px;
+    color: #888;
+}
+
+/* ============ 结束界面 ============ */
+#gameover-screen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    background: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(5px);
+}
+
+.gameover-content {
+    text-align: center;
+    color: white;
+}
+
+.gameover-title {
+    font-size: 42px;
+    font-weight: bold;
+    margin-bottom: 20px;
+    color: #FF4444;
+}
+
+.final-score {
+    font-size: 32px;
+    color: #FFD700;
+    font-weight: bold;
+    margin-bottom: 10px;
+}
+
+.final-coins {
+    font-size: 20px;
+    color: #FFA500;
+    margin-bottom: 15px;
+}
+
+.new-highscore {
+    font-size: 22px;
+    color: #FFD700;
+    margin-bottom: 20px;
+    animation: pulse 0.5s infinite alternate;
+}
+
+@keyframes pulse {
+    from { transform: scale(1); }
+    to { transform: scale(1.1); }
+}
+
+/* ============ 响应式 ============ */
+@media (max-width: 480px) {
+    #score-display {
+        padding: 6px 12px;
+    }
+    .score-value {
+        font-size: 22px;
+    }
+    .coin-value {
+        font-size: 18px;
+    }
+    .game-title {
+        font-size: 32px;
+    }
+    .gameover-title {
+        font-size: 32px;
+    }
+    .game-btn {
+        padding: 12px 40px;
+        font-size: 18px;
+    }
+}

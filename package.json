@@ -1,0 +1,12 @@
+{
+  "name": "subway-runner",
+  "version": "1.0.0",
+  "description": "地铁跑酷 - 个人定制版 3D 无尽跑酷游戏",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "npx serve . -p 3000"
+  },
+  "keywords": ["game", "threejs", "runner", "subway-surfer"],
+  "license": "MIT"
+}

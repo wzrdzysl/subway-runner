@@ -1,107 +1,125 @@
-// 音频管理器 - 稳健版
+// 音频管理器 - Web Audio API 版（彻底解决音效丢失问题）
 class AudioManager {
     constructor() {
+        this.ctx = null;
+        this.buffers = {};
+        this.bgmSource = null;
+        this.bgmGain = null;
         this.bgmPlaying = false;
-        this.muted = false;
+        this.bgmStartTime = 0;
+        this.bgmOffset = 0;
         this._initDone = false;
+        this._unlocked = false;
+    }
+
+    _ensureCtx() {
+        if (!this.ctx) {
+            this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (this.ctx.state === 'suspended') {
+            this.ctx.resume();
+        }
+        return this.ctx;
     }
 
     init() {
         if (this._initDone) return;
         this._initDone = true;
+        this._ensureCtx();
 
-        // 一次性创建所有音频元素并预加载
-        this._createAudio('bgm', 'assets/bgm.mp3', { loop: true, volume: 0.5 });
-        this._createAudio('death', 'assets/death.mp3', { loop: false, volume: 0.8 });
-        this._createAudio('jump', 'assets/jump.mp3', { loop: false, volume: 0.4 });
+        // 预加载所有音频到 AudioBuffer
+        this._loadAudio('bgm', 'assets/bgm.mp3');
+        this._loadAudio('death', 'assets/death.mp3');
+        this._loadAudio('jump', 'assets/jump.mp3');
+
+        // 首次用户交互时解锁音频
+        const unlock = () => {
+            if (this._unlocked) return;
+            const ctx = this._ensureCtx();
+            if (ctx.state === 'suspended') ctx.resume();
+            // 播放一个无声缓冲来解锁
+            const buf = ctx.createBuffer(1, 1, 22050);
+            const src = ctx.createBufferSource();
+            src.buffer = buf;
+            src.connect(ctx.destination);
+            src.start();
+            this._unlocked = true;
+        };
+        document.addEventListener('click', unlock, { once: true });
+        document.addEventListener('touchstart', unlock, { once: true });
+        document.addEventListener('keydown', unlock, { once: true });
     }
 
-    _createAudio(key, src, opts) {
-        const a = document.createElement('audio');
-        a.preload = 'auto';
-        a.src = src;
-        a.loop = opts.loop || false;
-        a.volume = opts.volume || 0.5;
-        a.load();
-
-        // 预加载到能播放
-        a.addEventListener('canplaythrough', () => {
-            this['_' + key + 'Ready'] = true;
-        }, { once: true });
-
-        a.addEventListener('error', (e) => {
-            console.warn('Audio load error:', key, e.target.error);
-            // 降级标记为就绪避免阻塞
-            this['_' + key + 'Ready'] = true;
-        }, { once: true });
-
-        this['_' + key] = a;
-    }
-
-    _playAudio(key) {
-        const a = this['_' + key];
-        if (!a) return;
-        if (this.muted) return;
-
-        a.currentTime = 0;
-        const p = a.play();
-        if (p && p.catch) {
-            p.catch(() => {
-                // 重试一次（某些浏览器第一次拒绝，第二次接受）
-                setTimeout(() => {
-                    a.currentTime = 0;
-                    a.play().catch(() => {});
-                }, 100);
-            });
+    async _loadAudio(key, url) {
+        try {
+            const response = await fetch(url);
+            const arrayBuffer = await response.arrayBuffer();
+            const ctx = this._ensureCtx();
+            const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
+            this.buffers[key] = audioBuffer;
+        } catch (e) {
+            console.warn('Audio load failed:', key, e.message);
         }
+    }
+
+    _playBuffer(key, volume = 1.0, loop = false) {
+        const ctx = this._ensureCtx();
+        if (ctx.state === 'suspended') ctx.resume();
+
+        const buffer = this.buffers[key];
+        if (!buffer) return null;
+
+        const source = ctx.createBufferSource();
+        source.buffer = buffer;
+        source.loop = loop;
+
+        const gain = ctx.createGain();
+        gain.gain.value = volume;
+        source.connect(gain);
+        gain.connect(ctx.destination);
+        source.start(0);
+        return { source, gain };
     }
 
     playBGM() {
-        if (!this._initDone) this.init();
         if (this.bgmPlaying) return;
-
-        const tryBGM = () => {
-            const a = this._bgm;
-            if (!a) return;
-            a.currentTime = 0;
-            a.play().then(() => {
-                this.bgmPlaying = true;
-            }).catch(() => {
-                // 再试
-                setTimeout(() => {
-                    a.play().then(() => {
-                        this.bgmPlaying = true;
-                    }).catch(() => {});
-                }, 200);
-            });
-        };
-
-        if (this._bgmReady) {
-            tryBGM();
-        } else {
-            // 还没加载完就等
-            const onReady = () => { tryBGM(); };
-            this._bgm.addEventListener('canplaythrough', onReady, { once: true });
-            setTimeout(() => {
-                if (!this.bgmPlaying) tryBGM();
-            }, 1500);
+        if (!this.buffers['bgm']) {
+            // 还没加载完，等一等
+            setTimeout(() => this.playBGM(), 500);
+            return;
         }
+
+        this.stopBGM();
+        this.bgmGain = this._ensureCtx().createGain();
+        this.bgmGain.gain.value = 0.5;
+
+        const source = this._ensureCtx().createBufferSource();
+        source.buffer = this.buffers['bgm'];
+        source.loop = true;
+        source.connect(this.bgmGain);
+        this.bgmGain.connect(this._ensureCtx().destination);
+        source.start(0);
+
+        this.bgmSource = source;
+        this.bgmPlaying = true;
     }
 
     stopBGM() {
-        const a = this._bgm;
-        if (!a) return;
-        a.pause();
-        a.currentTime = 0;
+        if (this.bgmSource) {
+            try { this.bgmSource.stop(); } catch (e) {}
+            this.bgmSource = null;
+        }
         this.bgmPlaying = false;
     }
 
     playDeath() {
-        this._playAudio('death');
+        this._ensureCtx().resume();
+        this._playBuffer('death', 0.9);
     }
 
     playJump() {
-        this._playAudio('jump');
+        this._ensureCtx().resume();
+        this._playBuffer('jump', 0.5);
     }
 }
 

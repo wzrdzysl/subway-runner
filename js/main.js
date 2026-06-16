@@ -95,6 +95,9 @@ class Game {
 
         this.player.playDeathAnimation();
 
+        // 雪碧冲上来"逮捕"
+        this.obstacles.triggerCatch(this.player.getPosition());
+
         this.ui.showGameOver(Math.floor(this.score), this.collectedCoins);
     }
 
@@ -128,16 +131,12 @@ class Game {
         // 更新轨道
         this.track.update(this.gameSpeed);
 
-        // 更新障碍物
-        const chaserResult = this.obstacles.update(
+        // 更新障碍物和雪碧追击者（纯视觉跟随）
+        this.obstacles.update(
             delta, this.gameSpeed,
             this.player.getLane(),
             this.player.getPosition()
         );
-        if (chaserResult === 'chaser_caught') {
-            this.gameOver('chaser');
-            return;
-        }
 
         // 碰撞检测
         const playerPos = this.player.getPosition();

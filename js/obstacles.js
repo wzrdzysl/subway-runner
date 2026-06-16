@@ -276,32 +276,26 @@ class ObstacleManager {
             }
         }
 
-        // 雪碧追击者
+        // 雪碧追击者 - 纯视觉跟随，只在玩家撞障碍物时"逮捕"（参照地铁跑酷设定）
         this.chaserTimer += delta;
-        if (!this.chaserActive && this.chaserTimer > GAME_CONFIG.CHASER_SPAWN_TIME) {
+        if (!this.chaserActive && this.chaserTimer > 3) {
             this.chaserActive = true;
             this.chaser.visible = true;
-            this.chaser.position.set(0, 0, -15);
-            this.chaserTimer = 0;
+            this.chaser.position.set(
+                GAME_CONFIG.LANE_POSITIONS[playerLane],
+                0,
+                playerPos.z - 10
+            );
         }
 
         if (this.chaserActive) {
-            const chaseSpeed = gameSpeed * 0.8;
-            this.chaser.position.z += chaseSpeed;
-            const px = GAME_CONFIG.LANE_POSITIONS[playerLane];
-            const dx = px - this.chaser.position.x;
-            this.chaser.position.x += dx * 0.02;
-
-            if (this.chaser.position.z >= playerPos.z - 1) {
-                return 'chaser_caught';
-            }
-            if (this.chaser.position.z > 20) {
-                this.chaserActive = false;
-                this.chaser.visible = false;
-                this.chaser.position.set(0, 0, -GAME_CONFIG.CHASER_DISTANCE);
-                this.chaserTimer = 0;
-            }
+            // 始终跟随在玩家后方
+            const targetX = GAME_CONFIG.LANE_POSITIONS[playerLane];
+            const targetZ = playerPos.z - 10;
+            this.chaser.position.x += (targetX - this.chaser.position.x) * 0.06;
+            this.chaser.position.z += (targetZ - this.chaser.position.z) * 0.1;
         }
+        // 追击者本身不会导致游戏结束，只有玩家撞到障碍物才会被"逮捕"
 
         return null;
     }
@@ -395,6 +389,29 @@ class ObstacleManager {
         }
 
         return false;
+    }
+
+    // 逮捕动画：玩家撞障碍物后雪碧冲上来
+    triggerCatch(playerPos) {
+        if (!this.chaserActive) return;
+        // 雪碧快速冲向玩家
+        this.chaser.position.z = playerPos.z - 2;
+        this.chaser.position.x = playerPos.x;
+        this.chaser.position.y = 1.5;
+        // 闪烁效果表示逮捕
+        this._flashChaser();
+    }
+
+    _flashChaser() {
+        let count = 0;
+        const interval = setInterval(() => {
+            this.chaser.visible = !this.chaser.visible;
+            count++;
+            if (count >= 6) {
+                clearInterval(interval);
+                this.chaser.visible = true;
+            }
+        }, 150);
     }
 
     reset() {

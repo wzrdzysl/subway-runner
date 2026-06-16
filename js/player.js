@@ -67,6 +67,7 @@ class Player {
         if (input.wantsJump() && !this.isJumping && !this.isSliding) {
             this.isJumping = true;
             this.jumpTimer = 0;
+            audioManager.playJump();
         }
 
         if (this.isJumping) {

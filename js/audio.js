@@ -19,6 +19,10 @@ class AudioManager {
         this.deathSfx = new Audio('assets/death.mp3');
         this.deathSfx.volume = 0.8;
 
+        // 跳跃音效
+        this.jumpSfx = new Audio('assets/jump.mp3');
+        this.jumpSfx.volume = 0.4;
+
         this.initialized = true;
     }
 
@@ -45,6 +49,14 @@ class AudioManager {
         if (this.deathSfx) {
             this.deathSfx.currentTime = 0;
             this.deathSfx.play().catch(e => console.log('SFX play blocked'));
+        }
+    }
+
+    playJump() {
+        if (!this.initialized) this.init();
+        if (this.jumpSfx) {
+            this.jumpSfx.currentTime = 0;
+            this.jumpSfx.play().catch(e => {});
         }
     }
 

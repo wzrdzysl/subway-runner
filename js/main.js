@@ -20,6 +20,9 @@ class Game {
     }
 
     init() {
+        // 预加载音频（不等用户点击，提前加载BGM大文件）
+        audioManager.init();
+
         // 初始化子系统
         this.input = new InputManager();
         this.ui = new UIManager();

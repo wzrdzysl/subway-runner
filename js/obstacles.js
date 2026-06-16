@@ -9,6 +9,7 @@ class ObstacleManager {
         this.spawnTimer = 0;
         this.spawnCooldown = 1.0;
         this.chaserTimer = 0;
+        this.elapsedTime = 0; // 游戏进行时间，用于动态难度
 
         this._createChaser();
     }
@@ -88,6 +89,11 @@ class ObstacleManager {
             case 'spike_trap':
                 // ===== 地面尖刺 - 必须跳跃 =====
                 this._buildSpikeTrap(group);
+                break;
+
+            case 'overhead_beam':
+                // ===== 头顶横梁 - 必须滑铲 =====
+                this._buildOverheadBeam(group);
                 break;
 
             case 'moving_barrier':
@@ -232,15 +238,57 @@ class ObstacleManager {
         group.add(base);
     }
 
+    _buildOverheadBeam(group) {
+        // 头顶横梁 - 必须滑铲才能通过
+        const beamGeo = new THREE.BoxGeometry(1.6, 0.25, 0.4);
+        const beamMat = new THREE.MeshStandardMaterial({
+            color: 0xFF2222, roughness: 0.2, metalness: 0.6,
+            emissive: 0x330000, emissiveIntensity: 0.4,
+        });
+        const beam = new THREE.Mesh(beamGeo, beamMat);
+        beam.position.y = 1.2; // 头部高度，不滑铲就会撞到
+        beam.castShadow = true;
+        group.add(beam);
+
+        // 两侧立柱
+        for (let side = -1; side <= 1; side += 2) {
+            const pillarGeo = new THREE.CylinderGeometry(0.08, 0.08, 1.2, 8);
+            const pillarMat = new THREE.MeshStandardMaterial({
+                color: 0x666666, metalness: 0.8,
+            });
+            const pillar = new THREE.Mesh(pillarGeo, pillarMat);
+            pillar.position.set(side * 0.7, 0.6, 0);
+            pillar.castShadow = true;
+            group.add(pillar);
+        }
+
+        // 警告箭头向下（提示需要下蹲）
+        const arrowGeo = new THREE.ConeGeometry(0.15, 0.3, 4);
+        const arrowMat = new THREE.MeshStandardMaterial({
+            color: 0xFF0000, emissive: 0xFF0000, emissiveIntensity: 0.6,
+        });
+        const arrow = new THREE.Mesh(arrowGeo, arrowMat);
+        arrow.position.set(0, 1.7, 0.3);
+        arrow.rotation.z = Math.PI; // 箭头向下
+        group.add(arrow);
+        group.userData.warningLight = arrow;
+    }
+
     update(delta, gameSpeed, playerLane, playerPos) {
+        this.elapsedTime += delta;
+
+        // 动态难度：随时间推移障碍物越来越密
+        const difficulty = Math.min(this.elapsedTime / 60, 1.0); // 60秒达到最大难度
+        const minInterval = Math.max(0.25, GAME_CONFIG.OBSTACLE_MIN_INTERVAL * (1 - difficulty * 0.7));
+        const maxInterval = Math.max(0.6, GAME_CONFIG.OBSTACLE_MAX_INTERVAL * (1 - difficulty * 0.7));
+
         // 生成障碍物
         this.spawnTimer += delta;
         if (this.spawnTimer >= this.spawnCooldown) {
             this.spawnTimer = 0;
-            this.spawnCooldown = GAME_CONFIG.OBSTACLE_MIN_INTERVAL +
-                Math.random() * (GAME_CONFIG.OBSTACLE_MAX_INTERVAL - GAME_CONFIG.OBSTACLE_MIN_INTERVAL);
+            this.spawnCooldown = minInterval + Math.random() * (maxInterval - minInterval);
 
-            this._spawnRandomObstacle(playerLane);
+            this._spawnRandomObstacle(playerLane, this.elapsedTime);
         }
 
         // 更新障碍物
@@ -300,9 +348,9 @@ class ObstacleManager {
         return null;
     }
 
-    _spawnRandomObstacle(playerLane) {
-        const types = ['barrier', 'low_barrier', 'wide_train', 'rolling_drum', 'spike_trap', 'moving_barrier'];
-        const weights = [0.25, 0.20, 0.15, 0.15, 0.15, 0.10];
+    _spawnRandomObstacle(playerLane, elapsed) {
+        const types = ['barrier', 'low_barrier', 'wide_train', 'rolling_drum', 'spike_trap', 'overhead_beam', 'moving_barrier'];
+        const weights = [0.20, 0.18, 0.15, 0.15, 0.12, 0.12, 0.08];
         const roll = Math.random();
         let type = 'barrier';
         let cumulative = 0;
@@ -311,24 +359,19 @@ class ObstacleManager {
             if (roll < cumulative) { type = types[i]; break; }
         }
 
-        // 确保至少有一条道是安全的（宽体列车除外）
+        // 确保永远有一条道可以通过
         if (type === 'wide_train') {
-            // 随机选2条邻接的跑道占用
-            const startLane = Math.floor(Math.random() * 2); // 0 or 1
-            const lanes = [startLane, startLane + 1];
-            // 如果玩家在这两条道上，也能通过跳到第三道躲过
+            // 随机选2条邻接车道，第3条一定安全
+            const startLane = Math.floor(Math.random() * 2);
             this._createObstacle(startLane, type, [startLane + 1]);
-        } else if (type === 'rolling_drum' || type === 'moving_barrier') {
-            // 摇摆型障碍物，避开玩家当前道
-            const availableLanes = [0, 1, 2].filter(l => l !== playerLane);
-            const lane = availableLanes[Math.floor(Math.random() * availableLanes.length)];
-            this._createObstacle(lane, type);
         } else {
-            // 普通障碍物，随机道但大概率避开玩家
-            const availableLanes = [0, 1, 2].filter(l => l !== playerLane);
+            // 单道障碍：优先放在非玩家道，保证玩家当前道通常安全
+            // 但难度高时可能会放到玩家道（迫使切换）
+            const safeChance = Math.max(0.3, 1.0 - elapsed * 0.005);
             let lane;
-            if (Math.random() < 0.6 && availableLanes.length > 0) {
-                lane = availableLanes[Math.floor(Math.random() * availableLanes.length)];
+            if (Math.random() < safeChance) {
+                const available = [0, 1, 2].filter(l => l !== playerLane);
+                lane = available[Math.floor(Math.random() * available.length)];
             } else {
                 lane = Math.floor(Math.random() * 3);
             }
@@ -384,6 +427,11 @@ class ObstacleManager {
                 case 'spike_trap':
                     // 尖刺 - 必须跳跃
                     if (dx < 0.7 && (!isJumping || py < 1.2)) return true;
+                    break;
+
+                case 'overhead_beam':
+                    // 头顶横梁 - 必须滑铲，跳跃撞得更惨
+                    if (dx < 0.9 && !isSliding) return true;
                     break;
             }
         }
@@ -516,6 +564,7 @@ class ObstacleManager {
         this.obstacles = [];
         this.spawnTimer = 0;
         this.spawnCooldown = 1.0;
+        this.elapsedTime = 0;
         this.chaserActive = false;
         this.chaser.visible = false;
         this.chaser.position.set(0, 0, -GAME_CONFIG.CHASER_DISTANCE);

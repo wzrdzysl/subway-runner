@@ -18,8 +18,8 @@ class CoinManager {
         const x = GAME_CONFIG.LANE_POSITIONS[laneIndex] + (Math.random() - 0.5) * 0.4;
         const group = new THREE.Group();
 
-        // 巧乐兹 - 竖立平面（始终面向摄像机，像雪糕包装竖着）
-        const coinGeo = new THREE.PlaneGeometry(0.28, 0.65);
+        // 巧乐兹 - 竖立平面（放大方便看清）
+        const coinGeo = new THREE.PlaneGeometry(0.45, 1.0);
         const coinMat = new THREE.MeshStandardMaterial({
             map: this.coinTexture,
             roughness: 0.3,
@@ -32,7 +32,7 @@ class CoinManager {
         group.userData.coinPlane = coin;
 
         // 发光光环
-        const glowGeo = new THREE.RingGeometry(0.2, 0.32, 16);
+        const glowGeo = new THREE.RingGeometry(0.3, 0.48, 16);
         const glowMat = new THREE.MeshBasicMaterial({
             color: 0xFFD700,
             side: THREE.DoubleSide,
@@ -95,8 +95,8 @@ class CoinManager {
             const dy = Math.abs(py - coin.position.y - 1.0);
             const dz = Math.abs(pz - coin.position.z);
 
-            // 收集范围
-            const collectRange = isSliding ? 1.5 : 1.0;
+            // 收集范围（巧乐兹放大后更容易碰到）
+            const collectRange = isSliding ? 1.8 : 1.3;
 
             if (dx < collectRange && dy < collectRange && dz < collectRange) {
                 // 收集动画效果

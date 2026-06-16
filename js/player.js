@@ -19,32 +19,41 @@ class Player {
     }
 
     _createCharacter() {
-        // 创建角色组
         this.mesh = new THREE.Group();
 
-        // 使用纹理贴图创建角色平面（始终面向摄像机）
-        const textureLoader = new THREE.TextureLoader();
-        const texture = textureLoader.load('assets/character.png');
-
-        // 角色平面
+        // 先用纯色占位（纹理加载前也能看到角色）
         const charGeo = new THREE.PlaneGeometry(1.2, 2.5);
-        const charMat = new THREE.MeshStandardMaterial({
-            map: texture,
+        const fallbackMat = new THREE.MeshBasicMaterial({
+            color: 0x4488CC,
             transparent: true,
             side: THREE.DoubleSide,
-            alphaTest: 0.1,
+            opacity: 0.9,
         });
-        const charPlane = new THREE.Mesh(charGeo, charMat);
-        charPlane.castShadow = true;
-        charPlane.receiveShadow = true;
+        const charPlane = new THREE.Mesh(charGeo, fallbackMat);
         this.mesh.add(charPlane);
+        this._charPlane = charPlane;
 
-        // 设置初始位置
+        // 异步加载纹理（加载完替换材质）
+        const textureLoader = new THREE.TextureLoader();
+        textureLoader.load('assets/character.png',
+            (texture) => {
+                // 加载成功 - 替换为带纹理的材质
+                charPlane.material = new THREE.MeshBasicMaterial({
+                    map: texture,
+                    transparent: true,
+                    side: THREE.DoubleSide,
+                });
+            },
+            undefined,
+            () => {
+                // 加载失败 - 保持纯色占位（至少能看到角色）
+                console.log('Character texture load failed, using fallback');
+                fallbackMat.color.set(0x4488CC);
+            }
+        );
+
         this.mesh.position.set(GAME_CONFIG.LANE_POSITIONS[1], 1.25, 0);
         this.scene.add(this.mesh);
-
-        // 保存纹理引用用于 billboard
-        this._charPlane = charPlane;
     }
 
     update(delta, input, gameSpeed) {

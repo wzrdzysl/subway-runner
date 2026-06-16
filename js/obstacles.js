@@ -391,15 +391,109 @@ class ObstacleManager {
         return false;
     }
 
-    // 逮捕动画：玩家撞障碍物后雪碧冲上来
-    triggerCatch(playerPos) {
-        if (!this.chaserActive) return;
-        // 雪碧快速冲向玩家
-        this.chaser.position.z = playerPos.z - 2;
-        this.chaser.position.x = playerPos.x;
-        this.chaser.position.y = 1.5;
-        // 闪烁效果表示逮捕
-        this._flashChaser();
+    // 逮捕动画：雪碧从后方冲刺撞飞玩家
+    triggerCatch(playerPos, playerMesh) {
+        if (!this.chaserActive) {
+            // 如果还没激活，强行激活
+            this.chaserActive = true;
+            this.chaser.visible = true;
+            this.chaser.position.set(playerPos.x, 0, playerPos.z - 6);
+        }
+
+        // 记录目标位置
+        this._catchTarget = { x: playerPos.x, z: playerPos.z };
+        this._catchPhase = 'charging'; // charging → hit → done
+        this._catchTimer = 0;
+        this._catchPlayerMesh = playerMesh;
+    }
+
+    updateCatchAnimation(delta) {
+        if (!this._catchPhase || this._catchPhase === 'done') return;
+
+        this._catchTimer += delta;
+
+        if (this._catchPhase === 'charging') {
+            // 雪碧猛冲向玩家（0.3秒内冲到）
+            const t = Math.min(this._catchTimer / 0.3, 1.0);
+            const ease = t * t; // 加速逼近
+            const startZ = this._catchTarget.z - 6 - (1 - ease) * 4;
+            this.chaser.position.z = startZ + ease * (this._catchTarget.z + 0.5 - startZ);
+            this.chaser.position.x += (this._catchTarget.x - this.chaser.position.x) * 0.2;
+
+            if (t >= 1.0) {
+                // 撞击！
+                this._catchPhase = 'hit';
+                this._catchTimer = 0;
+
+                // 撞飞玩家
+                if (this._catchPlayerMesh) {
+                    this._catchPlayerMesh.position.y += 2.5;
+                    this._catchPlayerMesh.position.z -= 2;
+                    this._catchPlayerMesh.rotation.z = Math.PI * 0.6;
+                    this._catchPlayerMesh.rotation.x = -0.4;
+                }
+
+                // 撞击粒子
+                this._spawnImpactParticles(this.chaser.position.clone());
+
+                // 闪烁
+                this._flashChaser();
+            }
+        } else if (this._catchPhase === 'hit') {
+            // 玩家落地
+            if (this._catchPlayerMesh && this._catchTimer < 0.5) {
+                this._catchPlayerMesh.position.y += (0.2 - this._catchPlayerMesh.position.y) * 0.1;
+            }
+            if (this._catchTimer > 1.5) {
+                this._catchPhase = 'done';
+            }
+        }
+    }
+
+    _spawnImpactParticles(position) {
+        const colors = [0xFF4444, 0xFF8800, 0xFFD700, 0xFFFFFF];
+        for (let i = 0; i < 20; i++) {
+            const geo = new THREE.SphereGeometry(0.08 + Math.random() * 0.12, 4, 4);
+            const mat = new THREE.MeshBasicMaterial({
+                color: colors[Math.floor(Math.random() * colors.length)],
+                transparent: true,
+                opacity: 1,
+            });
+            const particle = new THREE.Mesh(geo, mat);
+            particle.position.copy(position);
+            particle.position.y += 1;
+
+            const angle = Math.random() * Math.PI * 2;
+            const speed = 0.1 + Math.random() * 0.2;
+            particle.userData = {
+                vx: Math.cos(angle) * speed,
+                vy: 0.05 + Math.random() * 0.2,
+                vz: (Math.random() - 0.5) * speed * 2,
+                life: 0.8,
+            };
+
+            this.scene.add(particle);
+            this._animateParticle(particle);
+        }
+    }
+
+    _animateParticle(particle) {
+        const animate = () => {
+            particle.userData.life -= 0.016;
+            if (particle.userData.life <= 0) {
+                this.scene.remove(particle);
+                particle.geometry.dispose();
+                particle.material.dispose();
+                return;
+            }
+            particle.position.x += particle.userData.vx;
+            particle.position.y += particle.userData.vy;
+            particle.position.z += particle.userData.vz;
+            particle.userData.vy -= 0.005; // 重力
+            particle.material.opacity = particle.userData.life;
+            requestAnimationFrame(animate);
+        };
+        animate();
     }
 
     _flashChaser() {
@@ -425,5 +519,8 @@ class ObstacleManager {
         this.chaser.visible = false;
         this.chaser.position.set(0, 0, -GAME_CONFIG.CHASER_DISTANCE);
         this.chaserTimer = 0;
+        this._catchPhase = 'done';
+        this._catchTarget = null;
+        this._catchPlayerMesh = null;
     }
 }

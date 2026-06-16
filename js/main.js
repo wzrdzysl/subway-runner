@@ -98,8 +98,8 @@ class Game {
 
         this.player.playDeathAnimation();
 
-        // 雪碧冲上来"逮捕"
-        this.obstacles.triggerCatch(this.player.getPosition());
+        // 雪碧冲上来撞飞玩家
+        this.obstacles.triggerCatch(this.player.getPosition(), this.player.mesh);
 
         this.ui.showGameOver(Math.floor(this.score), this.collectedCoins);
     }
@@ -112,6 +112,9 @@ class Game {
 
         if (this.state === 'PLAYING') {
             this._update(delta);
+        } else if (this.state === 'GAME_OVER') {
+            // 继续渲染死亡动画
+            this.obstacles.updateCatchAnimation(delta);
         }
 
         this._render();
@@ -160,6 +163,7 @@ class Game {
 
         // Billboarding
         this.player.updateBillboard(this.camera);
+        this.coins.updateBillboard(this.camera);
     }
 
     _render() {

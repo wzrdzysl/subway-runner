@@ -18,33 +18,31 @@ class CoinManager {
         const x = GAME_CONFIG.LANE_POSITIONS[laneIndex] + (Math.random() - 0.5) * 0.4;
         const group = new THREE.Group();
 
-        // 巧乐兹主体 - 扁平长方体
-        const coinGeo = new THREE.BoxGeometry(0.4, 0.6, 0.08);
+        // 巧乐兹 - 竖立平面（始终面向摄像机，像雪糕包装竖着）
+        const coinGeo = new THREE.PlaneGeometry(0.28, 0.65);
         const coinMat = new THREE.MeshStandardMaterial({
             map: this.coinTexture,
             roughness: 0.3,
             metalness: 0.1,
-            emissive: 0x222222,
-            emissiveIntensity: 0.3,
+            side: THREE.DoubleSide,
+            transparent: true,
         });
         const coin = new THREE.Mesh(coinGeo, coinMat);
-        coin.castShadow = true;
         group.add(coin);
+        group.userData.coinPlane = coin;
 
         // 发光光环
-        const glowGeo = new THREE.RingGeometry(0.3, 0.45, 16);
+        const glowGeo = new THREE.RingGeometry(0.2, 0.32, 16);
         const glowMat = new THREE.MeshBasicMaterial({
             color: 0xFFD700,
             side: THREE.DoubleSide,
             transparent: true,
-            opacity: 0.5,
+            opacity: 0.4,
         });
         const glow = new THREE.Mesh(glowGeo, glowMat);
-        glow.position.z = 0.05;
         group.add(glow);
 
-        group.position.set(x, 1.0 + Math.random() * 0.5, GAME_CONFIG.COIN_SPAWN_DISTANCE);
-        group.rotation.x = Math.PI / 2; // 面朝玩家
+        group.position.set(x, 0.7 + Math.random() * 0.2, GAME_CONFIG.COIN_SPAWN_DISTANCE);
         this.scene.add(group);
         this.coins.push(group);
     }
@@ -74,11 +72,8 @@ class CoinManager {
             const coin = this.coins[i];
             coin.position.z -= gameSpeed;
 
-            // 旋转动画
-            coin.rotation.z += 0.05;
-
             // 上下浮动
-            coin.position.y += Math.sin(Date.now() * 0.005 + i) * 0.005;
+            coin.position.y += Math.sin(Date.now() * 0.004 + i) * 0.003;
 
             // 移除远处的
             if (coin.position.z < -10) {
@@ -141,6 +136,14 @@ class CoinManager {
                 geo.dispose();
                 mat.dispose();
             }, 500);
+        }
+    }
+
+    updateBillboard(camera) {
+        for (const coin of this.coins) {
+            if (coin.userData.coinPlane) {
+                coin.userData.coinPlane.lookAt(camera.position);
+            }
         }
     }
 

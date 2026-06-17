@@ -92,7 +92,7 @@ class CoinManager {
         for (let i = this.coins.length - 1; i >= 0; i--) {
             const coin = this.coins[i];
             const dx = Math.abs(px - coin.position.x);
-            const dy = Math.abs(py - coin.position.y - 1.0);
+            const dy = Math.abs(py - coin.position.y);
             const dz = Math.abs(pz - coin.position.z);
 
             // 收集范围（巧乐兹放大后更容易碰到）
